@@ -34,7 +34,7 @@ VADER (Valence Aware Dictionary and sEntiment Reasoner) was used to classify eac
 * **Neutral**: $(-0.05, 0.05)$
 * **Negative**: $\le -0.05$
 
-#### Sentiment Distribution
+### Sentiment Distribution
 The sentiment is nearly evenly split between positive and negative:
 
 | Sentiment | Proportion |
@@ -44,5 +44,5 @@ The sentiment is nearly evenly split between positive and negative:
 | **Neutral** | 14% |
 
 
-#### Sentiment Trend Over Time (2025)
+### Sentiment Trend Over Time (2025)
 The sentiment trend suggests a relatively **stable proportion of positive, negative, and neutral** reviews throughout the year. There are no major spikes indicating sudden user satisfaction or widespread issues.
