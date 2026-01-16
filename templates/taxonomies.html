@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Taxonomies avancées</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/taxonomies.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Traitement en cours...</div>
+      <div class="loading-sub">Classification zero-shot et agrégations des taxonomies.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Taxonomies avancées</div>
+        <div class="subtitle">Chargez un CSV avec une colonne <code>text</code> pour appliquer la classification du notebook et générer les distributions par catégories.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Charger un CSV</div>
+      <div class="section-desc">Colonnes recommandées: <code>text</code>, <code>rating</code>, <code>date</code> (optionnel).</div>
+      <div class="form-grid">
+        <form action="/taxonomies/analyze" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="classify">
+          <label for="taxonomy_file">CSV brut (colonne text)</label>
+          <input type="file" id="taxonomy_file" name="taxonomy_file" accept=".csv" required>
+          <div class="actions">
+            <button type="submit">Lancer la classification</button>
+          </div>
+        </form>
+        <form action="/taxonomies/analyze" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="load_existing">
+          <label for="taxonomy_existing">CSV déjà classifié</label>
+          <input type="file" id="taxonomy_existing" name="taxonomy_existing" accept=".csv" required>
+          <div class="actions">
+            <button type="submit">Charger les résultats</button>
+          </div>
+          <div class="tag">Attend <code>taxonomy_category</code> (et <code>main_category</code> optionnel).</div>
+        </form>
+      </div>
+      {% if taxo_error %}
+        <div class="error">{{ taxo_error }}</div>
+      {% endif %}
+    </section>
+
+    {% if results %}
+      <section class="panel">
+        <div class="section-title">Vue d'ensemble</div>
+        <div class="cards">
+          <div class="card">
+            <div class="label">Avis analysés</div>
+            <div class="value">{{ results.num_reviews }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Catégories granulares</div>
+            <div class="value">{{ results.num_categories }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Modèle</div>
+            <div class="value">{{ results.model_name if results.source != "imported" else "Import CSV" }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Batch / Device</div>
+            <div class="value">
+              {% if results.source == "imported" %}
+                N/A
+              {% else %}
+                {{ results.batch_size }} / {{ "GPU" if results.device == 0 else "CPU" }}
+              {% endif %}
+            </div>
+          </div>
+          <div class="card">
+            <div class="label">CSV classifié</div>
+            <div class="value"><a href="{{ results.download_uri }}" download="STEP 4 taxonomies.csv">Télécharger</a></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Distribution des catégories principales</div>
+        <div class="chart" id="main-bar"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Découpage des taxonomies (normalisé)</div>
+        <div class="chart chart-tall" id="taxonomy-breakdown"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Segmentation par note</div>
+        {% if results.rating_breakdown %}
+          <div class="chart chart-tall" id="rating-breakdown"></div>
+        {% else %}
+          <div class="tag">Colonne <code>rating</code> absente ou vide.</div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Tendances hebdomadaires (top catégories problème)</div>
+        {% if results.weekly_trends %}
+          <div class="chart chart-tall" id="weekly-trends"></div>
+        {% else %}
+          <div class="tag">Colonne <code>date</code> absente ou invalide.</div>
+        {% endif %}
+      </section>
+
+      <section class="panel grid-two">
+        <div>
+          <div class="section-title">Top catégories principales</div>
+          <table>
+            <tr><th>Catégorie</th><th>Volume</th><th>%</th></tr>
+            {% for row in results.main_counts %}
+              <tr>
+                <td>{{ row.category }}</td>
+                <td>{{ row.count }}</td>
+                <td>{{ row.percent }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+        <div>
+          <div class="section-title">Catégories granulares</div>
+          <table>
+            <tr><th>Catégorie</th><th>Volume</th></tr>
+            {% for row in results.category_counts %}
+              <tr>
+                <td>{{ row.category }}</td>
+                <td>{{ row.count }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Prévisualisation (100 premières lignes)</div>
+        <table>
+          <tr>
+            {% for col in results.preview_columns %}
+              <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+          {% for row in results.preview %}
+            <tr>
+              {% for col in results.preview_columns %}
+                <td>{{ row[col] }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
+      </section>
+    {% endif %}
+  </div>
+
+  {% if results %}
+    <script id="taxonomies-data" type="application/json">{{ {
+      "main_counts": results.main_counts,
+      "taxonomy_breakdown": results.taxonomy_breakdown,
+      "rating_breakdown": results.rating_breakdown,
+      "weekly_trends": results.weekly_trends
+    }|tojson }}</script>
+  {% else %}
+    <script id="taxonomies-data" type="application/json">{{ {
+      "main_counts": [],
+      "taxonomy_breakdown": {},
+      "rating_breakdown": none,
+      "weekly_trends": none
+    }|tojson }}</script>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/taxonomies.js') }}" defer></script>
+</body>
+</html>

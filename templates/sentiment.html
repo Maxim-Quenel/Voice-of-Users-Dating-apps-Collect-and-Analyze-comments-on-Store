@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Analyse de sentiment</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sentiment.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Traitement en cours...</div>
+      <div class="loading-sub">Classification transformer + fallback VADER, calcul des confidences.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Analyse de sentiment</div>
+        <div class="subtitle">Applique un modele transformer (type BERT) puis un fallback VADER sous seuil de confiance. Sorties: <code>sentiment_pred</code> (-1/0/1), <code>sentiment_pred_label</code>, <code>bert_conf</code>.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Charger un CSV</div>
+      <div class="section-desc">Colonne requise: <code>text</code>. Colonnes utiles: <code>rating</code>, <code>app_name</code>, <code>date</code>.</div>
+      <form action="/sentiment/analyze" method="POST" enctype="multipart/form-data">
+        <label for="sentiment_file">CSV brut (colonne text)</label>
+        <input type="file" id="sentiment_file" name="sentiment_file" accept=".csv" required>
+        <div class="actions">
+          <button type="submit">Analyser</button>
+        </div>
+      </form>
+      {% if sentiment_error %}
+        <div class="error">{{ sentiment_error }}</div>
+      {% endif %}
+    </section>
+
+    {% if results %}
+      <section class="panel">
+        <div class="section-title">Vue d'ensemble</div>
+        <div class="cards">
+          <div class="card">
+            <div class="label">Avis totaux</div>
+            <div class="value">{{ results.num_reviews }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Modele</div>
+            <div class="value">{{ results.model_name }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Confiance moyenne</div>
+            <div class="value">{{ results.avg_conf }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Fallback VADER</div>
+            <div class="value">{{ results.fallback_count }} ({{ results.fallback_share }}%)</div>
+          </div>
+          <div class="card">
+            <div class="label">CSV avec sentiment</div>
+            <div class="value"><a href="{{ results.download_uri }}" download="STEP 3 sentiment.csv">Telecharger</a></div>
+          </div>
+        </div>
+        <div class="tag">Seuil confiance: {{ results.conf_threshold }} | Batch {{ results.batch_size }} | Device {{ results.device }}</div>
+      </section>
+
+      <section class="panel grid-two">
+        <div>
+          <div class="section-title">Distribution des sentiments</div>
+          <div class="chart" id="sentiment-counts"></div>
+        </div>
+        <div>
+          <div class="section-title">Distribution des confidences</div>
+          <div class="chart" id="confidence-bins"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Extraits faible confiance</div>
+        {% if results.low_conf_samples %}
+          <table>
+            <tr>
+              {% for key in results.low_conf_samples[0].keys() %}
+                <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+            {% for row in results.low_conf_samples %}
+              <tr>
+                {% for key in results.low_conf_samples[0].keys() %}
+                  <td>{{ row[key] }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </table>
+        {% else %}
+          <div class="tag">Aucun extrait sous le seuil de confiance.</div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Previsualisation (100 premieres lignes)</div>
+        <table>
+          <tr>
+            {% for col in results.preview_columns %}
+              <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+          {% for row in results.preview %}
+            <tr>
+              {% for col in results.preview_columns %}
+                <td>{{ row[col] }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
+      </section>
+    {% endif %}
+  </div>
+
+  {% if results %}
+    <script id="sentiment-data" type="application/json">{{ {
+      "sentiment_counts": results.sentiment_counts,
+      "confidence_bins": results.confidence_bins
+    }|tojson }}</script>
+  {% else %}
+    <script id="sentiment-data" type="application/json">{{ {
+      "sentiment_counts": [],
+      "confidence_bins": []
+    }|tojson }}</script>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/sentiment.js') }}" defer></script>
+</body>
+</html>

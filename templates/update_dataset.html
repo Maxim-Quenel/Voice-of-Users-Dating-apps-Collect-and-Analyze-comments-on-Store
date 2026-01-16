@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Mise a jour du dataset</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/update_dataset.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-box">
+        <div class="loading-title">Mise a jour en cours...</div>
+        <div class="loading-sub">Scraping Google Play + Apple Store, filtrage par annee et deduplication.</div>
+        <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+      </div>
+    </div>
+
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Mise a jour du dataset</div>
+        <div class="subtitle">Met a jour le fichier maitre en recuperant les avis recents, puis applique nettoyage.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Charger un CSV</div>
+      <div class="section-desc">Mettre a jour un dataset existant ou creer un nouveau dataset sans fichier.</div>
+      <form action="/update-dataset/run" method="POST" enctype="multipart/form-data">
+        <label for="dataset_file">Dataset existant (CSV)</label>
+        <input type="file" id="dataset_file" name="dataset_file" accept=".csv">
+        <label for="google_country">Pays Google Play</label>
+        <input type="text" id="google_country" name="google_country" value="{{ status.google_country }}" placeholder="us">
+        <label for="google_lang">Langue Google Play</label>
+        <input type="text" id="google_lang" name="google_lang" value="{{ status.google_lang }}" placeholder="en">
+        <label for="target_year">Annee cible Google Play</label>
+        <input type="number" id="target_year" name="target_year" min="2008" max="2100" value="{{ status.target_year }}">
+        <div class="actions">
+          <button type="submit" name="update_action" value="update">Mettre a jour</button>
+          <button type="submit" name="update_action" value="create">Creer</button>
+          {% if status.output_exists %}
+            <a class="button-link" href="/update-dataset/download" download="STEP 1 mise_a_jour.csv">Telecharger le dataset</a>
+          {% endif %}
+        </div>
+      </form>
+      {% if update_error %}
+        <div class="error">{{ update_error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="section-title">Etat du dataset</div>
+      <div class="section-desc">Statistiques du dernier fichier charge.</div>
+      <div class="cards">
+        <div class="card">
+          <div class="label">Fichier charge</div>
+          <div class="value">{{ status.source_name or "Aucun fichier charge" }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Fichier present</div>
+          <div class="value">{{ "Oui" if status.output_exists else "Non" }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Lignes existantes</div>
+          <div class="value">{{ status.existing_rows }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Derniere date collectee</div>
+          <div class="value">{{ status.latest_date }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Google Play pays</div>
+          <div class="value">{{ status.google_country }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Google Play langue</div>
+          <div class="value">{{ status.google_lang }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Google Play annee</div>
+          <div class="value">{{ status.target_year }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel grid-two">
+      <div>
+        <div class="section-title">Google Play</div>
+        <table>
+          <tr><th>App</th><th>ID</th><th>Pays</th><th>Langue</th></tr>
+          {% for app in status.google_apps %}
+            <tr>
+              <td>{{ app.name }}</td>
+              <td>{{ app.id }}</td>
+              <td>{{ status.google_country }}</td>
+              <td>{{ status.google_lang }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <div class="section-title">Apple Store</div>
+        <table>
+          <tr><th>App</th><th>ID</th><th>Pays</th><th>Langue</th><th>Annee</th></tr>
+          {% for app in status.apple_apps %}
+            <tr>
+              <td>{{ app.name }}</td>
+              <td>{{ app.id }}</td>
+              <td>{{ status.apple_country }}</td>
+              <td>{{ status.apple_lang }}</td>
+              <td>{{ status.apple_year }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </section>
+
+    {% if results %}
+      <section class="panel">
+        <div class="section-title">Resultats</div>
+        {% if not results.updated %}
+          <div class="tag">Aucun nouvel avis detecte depuis {{ results.last_date }}.</div>
+        {% endif %}
+        <div class="tag">Google Play: {{ results.google_country }} / {{ results.google_lang }} / {{ results.target_year }}</div>
+        <div class="cards">
+          <div class="card">
+            <div class="label">Avis existants</div>
+            <div class="value">{{ results.existing_rows }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Nouveaux avis bruts</div>
+            <div class="value">{{ results.new_reviews }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Doublons supprimes</div>
+            <div class="value">{{ results.duplicates_removed }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Lignes finales</div>
+            <div class="value">{{ results.final_rows }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Variation nette</div>
+            <div class="value">{{ results.net_change }}</div>
+          </div>
+        </div>
+        {% if results.source_counts %}
+          <div class="tag">Sources: {% for key, value in results.source_counts.items() %}{{ key }} {{ value }}{% if not loop.last %} | {% endif %}{% endfor %}</div>
+        {% endif %}
+        {% if results.app_counts %}
+          <div class="tag">Apps: {% for key, value in results.app_counts.items() %}{{ key }} {{ value }}{% if not loop.last %} | {% endif %}{% endfor %}</div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Logs</div>
+        <pre class="log-box">{{ results.logs | join("\n") }}</pre>
+      </section>
+    {% endif %}
+  </div>
+
+  <script src="{{ url_for('static', filename='js/update_dataset.js') }}" defer></script>
+</body>
+</html>

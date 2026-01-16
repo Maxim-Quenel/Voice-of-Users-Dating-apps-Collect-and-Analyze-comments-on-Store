@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Exploration des textes courts</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/short_reviews.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Traitement en cours...</div>
+      <div class="loading-sub">Nettoyage, ajout de longueur et analyse des textes courts.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Exploration des textes courts</div>
+        <div class="subtitle">Reconstruit le dataset complet avec une colonne <code>longueur</code> (0 &lt; 4 mots, 1 &gt;= 4) et propose une lecture rapide des textes courts.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Charger un CSV</div>
+      <div class="section-desc">Colonne requise: <code>text</code>. Colonnes utiles: <code>rating</code>, <code>app_name</code>, <code>date</code>.</div>
+      <form action="/short-reviews/analyze" method="POST" enctype="multipart/form-data">
+        <label for="short_file">CSV brut (colonne text)</label>
+        <input type="file" id="short_file" name="short_file" accept=".csv" required>
+        <div class="actions">
+          <button type="submit">Analyser</button>
+        </div>
+      </form>
+      {% if short_error %}
+        <div class="error">{{ short_error }}</div>
+      {% endif %}
+    </section>
+
+    {% if results %}
+      <section class="panel">
+        <div class="section-title">Vue d'ensemble</div>
+        <div class="cards">
+          <div class="card">
+            <div class="label">Avis totaux</div>
+            <div class="value">{{ results.num_reviews }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Textes courts</div>
+            <div class="value">{{ results.short_count }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Textes longs</div>
+            <div class="value">{{ results.long_count }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Part courts</div>
+            <div class="value">{{ results.short_share }}%</div>
+          </div>
+          <div class="card">
+            <div class="label">CSV avec longueur</div>
+            <div class="value"><a href="{{ results.download_uri }}" download="STEP 2 textes_courts.csv">Telecharger</a></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel grid-two">
+        <div>
+          <div class="section-title">Courts vs longs</div>
+          <div class="chart" id="length-counts"></div>
+        </div>
+        <div>
+          <div class="section-title">Sentiment des textes courts</div>
+          <div class="chart" id="short-label-counts"></div>
+        </div>
+      </section>
+
+      <section class="panel grid-two">
+        <div>
+          <div class="section-title">Nombre de mots (textes courts)</div>
+          <div class="chart" id="short-word-counts"></div>
+        </div>
+        <div>
+          <div class="section-title">Notes des textes courts</div>
+          {% if results.short_rating_counts %}
+            <div class="chart" id="short-rating-counts"></div>
+          {% else %}
+            <div class="tag">Colonne <code>rating</code> absente ou vide.</div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Top applications (textes courts)</div>
+        {% if results.short_app_counts %}
+          <div class="chart" id="short-app-counts"></div>
+        {% else %}
+          <div class="tag">Colonne <code>app_name</code> absente ou vide.</div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Echantillon de textes courts</div>
+        {% if results.short_samples %}
+          <table>
+            <tr>
+              {% for key in results.short_samples[0].keys() %}
+                <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+            {% for row in results.short_samples %}
+              <tr>
+                {% for key in results.short_samples[0].keys() %}
+                  <td>{{ row[key] }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </table>
+        {% else %}
+          <div class="tag">Aucun texte court detecte.</div>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Previsualisation (100 premieres lignes)</div>
+        <table>
+          <tr>
+            {% for col in results.preview_columns %}
+              <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+          {% for row in results.preview %}
+            <tr>
+              {% for col in results.preview_columns %}
+                <td>{{ row[col] }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
+      </section>
+    {% endif %}
+  </div>
+
+  {% if results %}
+    <script id="short-data" type="application/json">{{ {
+      "length_counts": results.length_counts,
+      "short_label_counts": results.short_label_counts,
+      "short_word_counts": results.short_word_counts,
+      "short_rating_counts": results.short_rating_counts,
+      "short_app_counts": results.short_app_counts
+    }|tojson }}</script>
+  {% else %}
+    <script id="short-data" type="application/json">{{ {
+      "length_counts": [],
+      "short_label_counts": [],
+      "short_word_counts": [],
+      "short_rating_counts": none,
+      "short_app_counts": none
+    }|tojson }}</script>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/short_reviews.js') }}" defer></script>
+</body>
+</html>

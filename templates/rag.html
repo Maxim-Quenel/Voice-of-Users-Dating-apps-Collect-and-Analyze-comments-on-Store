@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Recherche sémantique (RAG)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rag.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Traitement en cours...</div>
+      <div class="loading-sub">Indexation RAG, chargement du CSV et embeddings.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Recherche sémantique RAG</div>
+        <div class="subtitle">Utilise le dataset annoté (ai_category + ai_group) pour retrouver des avis proches sémantiquement. Construisez l'index depuis le dataset en mémoire ou un CSV annoté, puis lancez vos requêtes.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Indexer un dataset</div>
+      <div class="section-desc">Vous pouvez réutiliser le dataset déjà labellisé (après clustering + LLM) ou charger un CSV annoté contenant au minimum les colonnes text, ai_category, ai_group.</div>
+      <div class="form-grid">
+        <form action="/rag/index" method="POST">
+          <input type="hidden" name="rag_action" value="memory">
+          <label>Dataset en mémoire (après labellisation)</label>
+          <div class="actions">
+            <button type="submit" {% if not has_data %}disabled{% endif %}>Indexer depuis la session actuelle</button>
+            <span class="tag">{{ rag_state.count }} documents indexés</span>
+          </div>
+          {% if not has_data %}
+            <div class="tag">Aucun clustering labellisé en mémoire.</div>
+          {% endif %}
+        </form>
+        <form action="/rag/index" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="rag_action" value="upload">
+          <label for="rag_file">Charger un CSV annoté</label>
+          <input type="file" id="rag_file" name="rag_file" accept=".csv">
+          <div class="actions">
+            <button type="submit">Indexer ce fichier</button>
+          </div>
+        </form>
+      </div>
+      {% if rag_error %}
+        <div class="error">{{ rag_error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="section-title">Etat de l'index</div>
+      <div class="section-desc">Source : {{ rag_state.source or "Non initialisé" }} | {{ rag_state.count }} documents.</div>
+      {% if rag_state.preview %}
+        <table>
+          <tr><th>text</th><th>ai_category</th><th>ai_group</th></tr>
+          {% for row in rag_state.preview %}
+            <tr>
+              <td>{{ row.text }}</td>
+              <td>{{ row.ai_category }}</td>
+              <td>{{ row.ai_group }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      {% else %}
+        <div class="tag">Aucun index RAG n'a encore été construit.</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="section-title">Recherche sémantique</div>
+      <div class="section-desc">Choisissez le nombre de résultats et le seuil de similarité cosinus (0-1). Les résultats en dessous du seuil sont filtrés.</div>
+      <form action="/rag/search" method="POST">
+        <div class="form-grid">
+          <div>
+            <label for="rag_query">Requête</label>
+            <textarea id="rag_query" name="rag_query" placeholder="Ex: faux profils, carte bancaire non acceptée">{{ rag_results.query if rag_results else "" }}</textarea>
+          </div>
+          <div>
+            <label for="rag_top_n">Nombre de résultats (1-50)</label>
+            <input type="number" id="rag_top_n" name="rag_top_n" min="1" max="50" value="{{ rag_results.matches|length if rag_results else 8 }}">
+            <label for="rag_threshold">Seuil cosinus</label>
+            <input type="range" id="rag_threshold" name="rag_threshold" min="0" max="1" step="0.05" value="{{ rag_results.min_similarity if rag_results else 0.35 }}">
+            <div class="tag">Seuil actuel : <span id="threshold-value">{{ rag_results.min_similarity if rag_results else 0.35 }}</span></div>
+            <div class="actions">
+              <button type="submit">Lancer la recherche</button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {% if rag_results %}
+        <div class="section-desc">Source : {{ rag_results.source or "Non initialisé" }} | {{ rag_results.indexed_count }} documents indexés.</div>
+        {% if rag_results.matches %}
+          <div class="results">
+            {% for row in rag_results.matches %}
+              <div class="result">
+                <div class="actions actions-compact">
+                  <span class="pill">{{ row.ai_group }}</span>
+                  <span class="pill">{{ row.ai_category }}</span>
+                  <span class="score">Score {{ row.similarity }}</span>
+                </div>
+                <div class="value result-text">{{ row.text }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="tag">Aucun résultat au dessus du seuil.</div>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    
+  </div>
+
+  
+  <script src="{{ url_for('static', filename='js/rag.js') }}" defer></script>
+</body>
+</html>

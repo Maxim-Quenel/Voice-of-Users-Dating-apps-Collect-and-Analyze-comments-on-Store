@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Cartographie des avis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Traitement en cours...</div>
+      <div class="loading-sub">Chargement des modèles, embeddings, clustering ou génération des labels.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Cartographie des avis</div>
+        <div class="subtitle">Chargez un CSV avec une colonne <code>text</code> pour lancer le clustering + labels, ou rechargez un CSV annoté pour naviguer dans les clusters.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="upload">
+        <div>
+          <div class="section-title">Charger un CSV brut</div>
+          <form action="/analyze" method="POST" enctype="multipart/form-data">
+            <label for="file">Fichier CSV (colonne text)</label>
+            <input type="file" id="file" name="file" accept=".csv" required>
+            <div class="actions">
+              <button name="action" value="cluster_labels" type="submit">Clustering + labels</button>
+            </div>
+          </form>
+        </div>
+        <div>
+          <div class="section-title">Recharger un CSV annoté</div>
+          <form action="/analyze" method="POST" enctype="multipart/form-data">
+            <label for="annotated_file">Recharger un CSV annoté (ai_category / ai_group / cluster)</label>
+            <input type="file" id="annotated_file" name="annotated_file" accept=".csv">
+            <div class="actions">
+              <button name="action" value="load_annotated" type="submit">Charger le CSV annoté</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% if results and results.error %}
+        <div class="error">{{ results.error }}</div>
+      {% endif %}
+    </section>
+
+    {% if results and not results.error %}
+      <section class="panel">
+        <header>
+          <div>
+            <div class="title title-small">Vue d'ensemble</div>
+            <div class="subtitle">Catégories automatiques + groupes agrégés</div>
+          </div>
+        </header>
+        <div class="cards">
+          <div class="card">
+            <div class="label">Clusters (hors bruit)</div>
+            <div class="value">{{ results.num_clusters }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Points bruit</div>
+            <div class="value">{{ results.num_noise }}</div>
+          </div>
+          <div class="card">
+            <div class="label">Groupe dominant</div>
+            <div class="value"><span class="pill">{{ results.largest_group }}</span></div>
+          </div>
+          <div class="card">
+            <div class="label">CSV final (ai_category / ai_group)</div>
+            <div class="value"><a href="{{ results.download_uri }}" download="STEP 5 clustering.csv">Télécharger (dataset courant)</a></div>
+          </div>
+          <div class="card">
+            <div class="label">Labels générés ?</div>
+            <div class="value">{{ "Oui" if results.labels_ready else "Non (clustering seul)" }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Explorer par catégorie</div>
+        <div class="subtitle">Choisissez un groupe, puis une sous-catégorie pour voir 10 avis tirés aléatoirement.</div>
+        <div class="explore-layout">
+          <div class="explore-panel">
+            <label class="tag" for="group-select">Grosse catégorie</label>
+            <select id="group-select"></select>
+          </div>
+          <div class="explore-panel">
+            <label class="tag" for="category-select">Sous-catégorie</label>
+            <select id="category-select"></select>
+          </div>
+          <div class="explore-actions">
+            <button type="button" id="refresh-samples">Tirer 10 extraits</button>
+            <div class="explore-pill">Cluster(s): <span id="cluster-label">-</span></div>
+            <div class="explore-meta">Les extraits sont tirés aléatoirement à chaque clic.</div>
+          </div>
+        </div>
+        <div class="samples" id="sample-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Projection UMAP 2D</div>
+        <div class="subtitle">Visualisation (échantillon max 4000 points) colorée par cluster.</div>
+        <div id="umap-plot" class="umap-plot"></div>
+      </section>
+
+      <section class="panel grid-two">
+        <div>
+          <div class="section-title">Répartition des catégories principales</div>
+          <table>
+            <tr><th>Groupe</th><th>Comptage</th></tr>
+            {% for row in results.ai_group_sizes %}
+              <tr>
+                <td>{{ row.group }}</td>
+                <td>{{ row.count }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+        <div>
+          <div class="section-title">Renommage automatique (LLM)</div>
+          <table>
+            <tr><th>Cluster</th><th>Nom proposé</th><th>Catégorie principale</th></tr>
+            {% for row in results.ai_labels %}
+              <tr>
+                <td>{{ row.cluster }}</td>
+                <td>{{ row.ai_category }}</td>
+                <td>{{ row.ai_group }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Clusters nommés (vue complète)</div>
+        <table>
+          <tr><th>Cluster</th><th>Nom (ai_category)</th><th>Groupe</th><th>Volume</th></tr>
+          {% for row in results.cluster_table %}
+            <tr>
+              <td>{{ row.cluster }}</td>
+              <td>{{ row.ai_category }}</td>
+              <td>{{ row.ai_group }}</td>
+              <td>{{ row.count }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">Prévisualisation (100 premières lignes)</div>
+        <table>
+          <tr><th>text</th><th>cluster</th><th>ai_category</th><th>ai_group</th></tr>
+          {% for row in results.preview %}
+            <tr>
+              <td>{{ row.text }}</td>
+              <td>{{ row.cluster }}</td>
+              <td>{{ row.ai_category }}</td>
+              <td>{{ row.ai_group }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </section>
+
+    {% endif %}
+  </div>
+
+  {% if results and not results.error %}
+    <script id="app-data" type="application/json">{{ {"category_pools": results.category_pools, "umap_points": results.umap_points}|tojson }}</script>
+  {% else %}
+    <script id="app-data" type="application/json">{{ {"category_pools": {}, "umap_points": []}|tojson }}</script>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>

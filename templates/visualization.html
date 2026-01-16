@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Atelier de visualisation</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/visualization.css') }}">
+</head>
+<body>
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-box">
+      <div class="loading-title">Chargement en cours...</div>
+      <div class="loading-sub">Lecture du CSV et preparation de l'echantillon.</div>
+      <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    </div>
+  </div>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="title">Atelier de visualisation</div>
+        <div class="subtitle">Construisez des graphiques interactifs a partir de l'index RAG charge.</div>
+      </div>
+      <div class="nav">
+        <a href="/update-dataset">1. Mise a jour</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/short-reviews">2. Textes courts</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/sentiment">3. Sentiment</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/taxonomies">4. Taxonomies</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/clustering">5. Clustering</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/rag">6. RAG</a>
+        <span class="nav-arrow">&rarr;</span>
+        <a href="/visualization">7. Atelier de visualisation</a>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-title">Charger un CSV</div>
+      <div class="section-desc">Chargez un dataset pour generer des graphiques. Un echantillon est utilise pour la performance.</div>
+      <form action="/visualization/analyze" method="POST" enctype="multipart/form-data">
+        <label for="viz_file">Dataset (CSV)</label>
+        <input type="file" id="viz_file" name="viz_file" accept=".csv" required>
+        <label for="viz_share">Pourcentage de donnees utilise</label>
+        <input type="range" id="viz_share" name="viz_share" min="1" max="100" value="{{ viz_share }}">
+        <div class="tag">Pourcentage selectionne : <span id="viz_share_value">{{ viz_share }}</span>%</div>
+        <div class="actions">
+          <button type="submit">Charger le dataset</button>
+        </div>
+      </form>
+      {% if viz_error %}
+        <div class="error">{{ viz_error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="section-title">Atelier de visualisation</div>
+      <div class="section-desc">Choisissez un type de graphe, les axes et l'aggregation.</div>
+      {% if results %}
+        <div class="form-grid">
+          <div>
+            <label for="chart-type">Type de graphe</label>
+            <select id="chart-type">
+              <option value="bar">Barres</option>
+              <option value="line">Lignes</option>
+              <option value="scatter">Nuage de points</option>
+              <option value="histogram">Histogramme</option>
+              <option value="box">Boxplot</option>
+            </select>
+          </div>
+          <div>
+            <label for="chart-x">Axe X</label>
+            <select id="chart-x">
+              {% if results %}
+                {% for col in results.columns %}
+                  <option value="{{ col }}">{{ col }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <div>
+            <label for="chart-y">Axe Y</label>
+            <select id="chart-y">
+              {% if results %}
+                {% for col in results.columns %}
+                  <option value="{{ col }}">{{ col }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <div>
+            <label for="chart-color">Couleur / Groupe</label>
+            <select id="chart-color">
+              <option value="">Aucun</option>
+              {% if results %}
+                {% for col in results.columns %}
+                  <option value="{{ col }}">{{ col }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <div>
+            <label for="chart-agg">Aggregation</label>
+            <select id="chart-agg">
+              <option value="count">Count</option>
+              <option value="sum">Somme</option>
+              <option value="avg">Moyenne</option>
+              <option value="median">Mediane</option>
+            </select>
+          </div>
+          <div>
+            <label for="chart-limit">Top N (categories)</label>
+            <input type="number" id="chart-limit" min="5" max="100" value="20">
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="chart-refresh">Mettre a jour</button>
+          <span class="tag">Echantillon : {{ results.chart_sample_size }} lignes ({{ results.effective_percent }}%) sur {{ results.total_rows }}</span>
+        </div>
+        <div id="chart-canvas" class="chart"></div>
+        <div id="chart-hint" class="tag">Choisissez un X et un Y numeriques pour les graphes avances.</div>
+      {% else %}
+        <div class="tag">Chargez un dataset pour activer les graphiques.</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <script>
+    window.VIZ_CHART_DATA = {{ {
+      "columns": results.columns if results else [],
+      "sample": results.chart_sample if results else [],
+      "types": results.column_types if results else {},
+      "sample_size": results.chart_sample_size if results else 0
+    }|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/visualization.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+Titre	:	Voice	of	Users	—	Dating	apps	—	Collect	and	Analyze	comments	on	Store
+Description	:	Présentation	&	contexte
+Analyser	les	avis	publics	des	principales	apps	de	rencontre	(Tinder,	Hinge,	Bumble,	Adopte	+	2
+3	autres)	sur	Apple	App	Store	et	Google	Play	afin	de	mieux	comprendre	le	marché,	d’identifier
+les	irritants	récurrents	et	de	formuler	des	recommandations	produit/expérience.
+Le	projet	s’inscrit	au	sein	d’INORBIT	(fondée	par	deux	alumni	ESILV	2023),	qui	souhaite
+challenger	un	marché	jugé	vieillissant	(offres	saturées,	faible	différenciation,	modèle	moins
+efficace	auprès	de	la	Gen	Z)	alors	que	la	demande	reste	forte	et	se	déplace	vers	d’autres
+plateformes	(p.	ex.	HelloTalk,	Strava),	en	dehors	de	l’usage	initial.	Les	technos	NLP/LLM	et	un
+cloud	léger	rendent	possible	une	analyse	à	grande	échelle	et	à	faible	coût	pertinente	dans
+l’écosystème	actuel.
+Projet	exploratoire	:	non	critique	pour	le	déploiement	de	notre	application	"Dual"	fin	2025.
+Option	:	mini-enquête	auprès	des	étudiants	du	Pôle	pour	collecter	des	avis	internes	et	les
+comparer	aux	stores.
+Prérequis	(compétences	&	outils)
+Bases	solides	en	Python	et	SQL
+Familiarité	:	pandas,	polars,	matplotlib
+Visualisation/BI	:	Tableau	ou	Power	BI	(débutant)
+Notions	NLP
+Bonus	:	dbt,	Docker,	MLflow,	Streamlit/FastAPI,	BeautifulSoup4,	Supabase,	BERTopic/LDA
+Objectifs
+Concevoir	un	pipeline	de	bout	en	bout	pour	collecter	→	nettoyer	→	enrichir	→	analyser	→
+restituer	les	avis.	Produire	des	KPIs,	des	thèmes	et	5–10	recommandations	priorisées	(score
+Impact	×	Fréquence	×	Sévérité)	appuyées	par	extraits	et	graphiques.
+Contraintes
+Sources	publiques,	faible	débit,	rotation	d’user-agents,	logs	d’erreurs/retries	(recommandé)
+Schéma	iOS/Android	unifié	;	stockage	CSV/Parquet	(+	SQLite/DuckDB)
+Aucune	PII	(exclusion	des	pseudos/IDs)	—	obligatoire
+dbt	recommandé	pour	la	conception	(modèles,	tests,	doc)
+Livrables	attendus	(fin	de	projet)
+Dépôt	de	code	avec	README	&	configs
+Snapshot	de	données	(CSV/Parquet)	+	dictionnaire
+Projet	dbt	(modèles,	tests,	doc)	+	docs	générées
+Petit	dashboard	Tableau	ou	Power	BI	(+	exports	d’images)
+5–10	recommandations	priorisées
+Démo	rapide
+Bonus	:	image	Docker,	FastAPI,	run	planifié	(CI/cron)
+Informations	sur	le	projet
+Compétences	développées	:	-	Conception	d'une	pipeline	data	de	bout	en	bout	(ETL)	-	Dbt
+Fundamentals	-	NLP/ML	Flow	(sentiment,	thématiques/sujets,	clustering).	-	LLM	(usage	et
+pertinence	dans	l'intégration)	-	Elaborer	des	dashboards	Tableau	ou	Power	BI	-	Analyser	et
+interpréter	des	données	afin	d'en	tirer	des	recommandations	business/actionnables.	-	Notions
+des	aspects	éthiques/juridiques	de	la	collecte	de	données	publiques.
+Informations	complémentaires	:	Nous	pensons	que	ce	projet	est	particulièrement	formateur	:
+vous	interviendrez	sur	toute	la	chaîne	data	(ingestion	→	transformation	→	analyse	→	restitution)
+et	comprendrez	concrètement	les	périmètres	des	métiers	Data	Analyst	/	Data	Scientist	/	Data
+Engineer	en	entreprise.	Vous	manipulerez	des	outils	très	demandés	:	Power	BI	et	Tableau	pour
+la	visualisation,	dbt	pour	la	transformation	et	l’orchestration	de	données.	En	tant	que	jeune
+startup,	nous	travaillons	en	mode	agile/lean	:	accompagnement	de	proximité,	itérations	rapides
+et,	si	l’équipe	est	partante,	possibilité	d’aller	plus	loin	jusqu’au	déploiement	d’un	MVP.
